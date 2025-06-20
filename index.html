@@ -1,71 +1,82 @@
-<!-- Firebase Quiz Platform - Initial Setup -->
-<!-- Teacher Panel hosted on GitHub and Student Panel embedded in Odoo Website -->
-
-<!-- index.html for Teacher Side (GitHub Hosted) -->
-<!DOCTYPE html>
 <html>
 <head>
-  <title>Teacher Panel - Create Quiz</title>
+  <title>Student Quiz Panel</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    .question-box { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
-    .option { margin: 5px 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+    #searchBar { width: 100%; padding: 10px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ccc; }
+    .test-block { background: #fff; padding: 20px; margin-bottom: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .test-block:hover { background: #f9f9f9; }
+    #quizArea { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
-  <h1>Create Quiz</h1>
-  <input id="testTitle" placeholder="Enter Test Title"><br><br>
-  <div id="questionsContainer"></div>
-  <button onclick="addQuestion()">Add Question</button>
-  <button onclick="uploadTest()">Upload Test</button>
+  <input type="text" id="searchBar" placeholder="Search tests...">
+  <div id="testBlocks"></div>
+  <div id="quizArea"></div>
+
   <script>
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAGPyk54-zJUE6iV3872XKLIq9OW3KCM6o",
-  authDomain: "skillyterns.firebaseapp.com",
-  projectId: "skillyterns",
-  storageBucket: "skillyterns.firebasestorage.app",
-  messagingSenderId: "1034584532277",
-  appId: "1:1034584532277:web:fb79e2d96ee5127421d87c",
-  measurementId: "G-5G2GCWYEPL"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGPyk54-zJUE6iV3872XKLIq9OW3KCM6o",
+      authDomain: "skillyterns.firebaseapp.com",
+      databaseURL: "https://skillyterns-default-rtdb.firebaseio.com",
+      projectId: "skillyterns",
+      storageBucket: "skillyterns.firebasestorage.app",
+      messagingSenderId: "1034584532277",
+      appId: "1:1034584532277:web:fb79e2d96ee5127421d87c",
+      measurementId: "G-5G2GCWYEPL"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let test = { title: '', questions: [] };
+    let allTests = {};
 
-    function addQuestion() {
-      const index = test.questions.length;
-      const container = document.getElementById('questionsContainer');
-      const box = document.createElement('div');
-      box.className = 'question-box';
-      box.innerHTML = `
-        <input placeholder='Enter Question' class='q${index}'><br>
-        <div class='options${index}'>
-          <input placeholder='Option 1' class='opt${index}0'><input type='radio' name='correct${index}' value='0'><br>
-          <input placeholder='Option 2' class='opt${index}1'><input type='radio' name='correct${index}' value='1'><br>
-          <input placeholder='Option 3' class='opt${index}2'><input type='radio' name='correct${index}' value='2'><br>
-          <input placeholder='Option 4' class='opt${index}3'><input type='radio' name='correct${index}' value='3'><br>
-        </div>`;
-      container.appendChild(box);
+    db.ref('quizzes').on('value', snap => {
+      allTests = snap.val();
+      renderTests('');
+    });
+
+    document.getElementById('searchBar').addEventListener('input', e => {
+      const keyword = e.target.value.toLowerCase();
+      renderTests(keyword);
+    });
+
+    function renderTests(filter) {
+      const container = document.getElementById('testBlocks');
+      container.innerHTML = '';
+      for (let id in allTests) {
+        const test = allTests[id];
+        if (!test.title.toLowerCase().includes(filter)) continue;
+        const div = document.createElement('div');
+        div.className = 'test-block';
+        div.innerHTML = `<h3>${test.title}</h3><p>${test.description || 'No description'}</p>`;
+        div.onclick = () => renderTest(id, test);
+        container.appendChild(div);
+      }
     }
 
-    function uploadTest() {
-      const title = document.getElementById('testTitle').value;
-      test.title = title;
-      const boxes = document.querySelectorAll('.question-box');
-      boxes.forEach((box, i) => {
-        const question = document.querySelector(`.q${i}`).value;
-        const options = [0,1,2,3].map(j => document.querySelector(`.opt${i}${j}`).value);
-        const correct = document.querySelector(`input[name='correct${i}']:checked`).value;
-        test.questions.push({ question, options, correct });
+    function renderTest(id, test) {
+      const area = document.getElementById('quizArea');
+      area.innerHTML = '';
+      test.questions.forEach((q, i) => {
+        const div = document.createElement('div');
+        div.innerHTML = `<p>${i+1}. ${q.question}</p>` +
+          q.options.map((opt, j) => `<label><input type='radio' name='q${i}' value='${j}'> ${opt}</label><br>`).join('');
+        area.appendChild(div);
       });
-      const testId = Date.now();
-      db.ref('quizzes/' + testId).set(test).then(() => alert('Test Uploaded!'));
+      const btn = document.createElement('button');
+      btn.innerText = 'Submit';
+      btn.onclick = () => {
+        let score = 0;
+        test.questions.forEach((q, i) => {
+          const selected = document.querySelector(`input[name='q${i}']:checked`);
+          if (selected && selected.value === q.correct) score++;
+        });
+        alert(`Your Score: ${score}/${test.questions.length}`);
+      };
+      area.appendChild(btn);
     }
   </script>
 </body>
 </html>
-
